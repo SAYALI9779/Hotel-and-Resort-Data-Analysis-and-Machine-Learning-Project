@@ -1,0 +1,46 @@
+---
+title: "Data Cleaning Code"
+author: "Kevin Ivers"
+date: "12/9/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+ProjectCSV2 <- ProjectCSV[,-c(9,14,15)]
+#Subsets the data set to remove problematic variables for the SVM Model
+
+ProjectCSV2$Family <- ifelse(ProjectCSV2$Children > 0 | ProjectCSV2$Babies > 0, 1,0)
+#Creates a Family column for if the customers have children and or babies
+ProjectCSV2$Couple <- ifelse(ProjectCSV2$Adults == 2 & ProjectCSV2$Family == 0, 1,0)
+#Creates a Couple column for if the customers are a couple (2 adults and no children)
+ProjectCSV2$Single <- ifelse(ProjectCSV2$Adults == 1 & ProjectCSV2$Family == 0, 1,0)
+#Creates a Single Column for if the customer is just 1 adult
+ProjectCSV2$TotalStayDuration <- ProjectCSV2$StaysInWeekendNights + ProjectCSV2$StaysInWeekNights
+#Creates a Total Stay Duration column that finds the total length of stay, not caring about weekend or weekday
+ProjectCSV2$VisitorType <- ifelse(ProjectCSV2$Family == 1, "Family", ifelse(ProjectCSV2$Couple == 1,"Couple",ifelse(ProjectCSV2$Single == 1,"Single", "Other")))
+#Creates a vistior type that shows if it is a family, couple, single traveler, or other group that doesn't fit any criteria
+ProjectCSV2$RequiredCarParkingSpaces[ProjectCSV2$RequiredCarParkingSpaces>1] <- "2+" 
+#Adjusts any customers requesting 2+ parking spaces to reflect that because of the small sample of individual numbers above 1
+
+
+
+ProjectCSV$Family <- ifelse(ProjectCSV$Children > 0 | ProjectCSV$Babies > 0, 1,0)
+ProjectCSV$Couple <- ifelse(ProjectCSV$Adults == 2 & ProjectCSV$Family == 0, 1,0)
+ProjectCSV$Single <- ifelse(ProjectCSV$Adults == 1 & ProjectCSV$Family == 0, 1,0)
+ProjectCSV$TotalStayDuration <- ProjectCSV$StaysInWeekendNights + ProjectCSV$StaysInWeekNights
+ProjectCSV$VisitorType <- ifelse(ProjectCSV$Family == 1, "Family", ifelse(ProjectCSV$Couple == 1,"Couple",ifelse(ProjectCSV$Single == 1,"Single", "Other")))
+ProjectCSV$DoNotGetRoomChoice <- ifelse(ProjectCSV$ReservedRoomType != ProjectCSV$AssignedRoomType,1,0)
+#Does what was stated above but for the original, unsubsetted dataset
+```
+
+```{r}
+ProjectCSV2 %>%
+  filter(IsRepeatedGuest == 1) -> RepeatGuestSet
+ProjectCSV2 %>%
+  filter(Couple == 1) -> CouplesSet
+```
+

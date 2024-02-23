@@ -1,0 +1,176 @@
+---
+title: "Analysis Visuals Code"
+author: "Kevin Ivers"
+date: "12/9/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+ProjectCSV2 %>% 
+  group_by(MarketSegment, IsCanceled) %>% 
+  summarize(AvgLeadTime = mean(LeadTime)) %>% 
+  ggplot(aes(x=MarketSegment, y=AvgLeadTime, fill = as.factor(IsCanceled))) + 
+    geom_bar(stat="identity", position=position_dodge())+
+    theme_minimal() + xlab("Market Segment") + ylab("Advance Booking Time") + ggtitle("Cancellations by Market Segment and Advance Booking Time")
+ggsave("Cancellations by Market Segment and Advance Booking Time.png", height = 7, width = 13)
+#creates a bar plot for cancellations based on the customer's market segment and average lead time
+
+ProjectCSV2 %>% 
+  group_by(MarketSegment, IsCanceled) %>% 
+  summarize(AvgTotalStayDuration = mean(TotalStayDuration)) %>% 
+  ggplot(aes(x=MarketSegment, y=AvgTotalStayDuration, fill = as.factor(IsCanceled))) + 
+    geom_bar(stat="identity", position=position_dodge())+
+    theme_minimal()
+#Creates a bar plot for cancellations based on the customer's market segment and their average total stay duration
+
+ProjectCSV2 %>% 
+  group_by(CustomerType, IsCanceled) %>% 
+  summarize(AvgLeadTime = mean(LeadTime)) %>% 
+  ggplot(aes(x=CustomerType, y=AvgLeadTime, fill = as.factor(IsCanceled))) + 
+    geom_bar(stat="identity", position=position_dodge())+
+    theme_minimal() + ylab("Advance Booking Time") + xlab("Customer Type") + ggtitle("Cancellations By Customer Time and Advance Booking Time")
+ggsave("Cancellations By Customer Time and Advance Booking Time.png", height = 7, width = 13)
+#Creates a bar plot for cancellations based on the customer type and average lead time
+
+ProjectCSV2 %>% 
+  group_by(CustomerType, IsCanceled) %>% 
+  summarize(AvgTotalStayDuration = mean(TotalStayDuration)) %>% 
+  ggplot(aes(x=CustomerType, y=AvgTotalStayDuration, fill = as.factor(IsCanceled))) + 
+    geom_bar(stat="identity", position=position_dodge())+
+    theme_minimal()
+ggsave("Cancellations By Customer Type and Average Stay Duration.png", height = 7, width = 13)
+#Creates a bar plot for cancellations based on the customer type and their average total stay duration
+
+ProjectCSV2 %>% 
+  group_by(VisitorType, IsCanceled) %>% 
+  summarize(AvgTotalStayDuration = mean(TotalStayDuration)) %>% 
+  ggplot(aes(x=VisitorType, y=AvgTotalStayDuration, fill = as.factor(IsCanceled))) + 
+    geom_bar(stat="identity", position=position_dodge())+
+    theme_minimal()
+ggsave("Cancellations By Visitor Type and Average Stay Duration.png", height = 7, width = 13)
+#Creates a bar plot for cancellations based on the visitor type and their average total stay duration
+
+ProjectCSV2 %>% 
+  group_by(VisitorType, IsCanceled) %>% 
+  summarize(`Pct of Customers that are Repeat` = mean(IsRepeatedGuest)) %>% 
+  ggplot(aes(x=VisitorType, y=`Pct of Customers that are Repeat`, fill = as.factor(IsCanceled))) + 
+    geom_bar(stat="identity", position=position_dodge())+
+    theme_minimal() + xlab("Visitor Type") + ggtitle("Repeat Customers Across Visitor Types by Cancellations")
+ggsave("Cancellations Based on Repeat Customers Across Visitor Types.png", height = 7, width = 13)
+#Creates a bar plot for cancellations based on visitor type and the percentage of customers that are repeat customers
+
+ProjectCSV %>% 
+  group_by(VisitorType, IsCanceled) %>% 
+  summarize(AvgDoNotGetRoomChoice = mean(DoNotGetRoomChoice)) %>% 
+  ggplot(aes(x=VisitorType, y=AvgDoNotGetRoomChoice, fill = as.factor(IsCanceled))) + 
+    geom_bar(stat="identity", position=position_dodge())+
+    theme_minimal() + xlab("Visitor Type") + ylab("Percentage That do Not get Preferred Room Choice") + ggtitle("Cancellations across Visitor Types Based on Not Getting Preferred Room")
+ggsave("Cancellations Based on Not Getting Preferred Room and Visitor Type.png", height = 7, width = 13)
+#Creates a bar plot for cancellations based on visitor type and the percentage of customers that don't get their preferred room choice
+
+ProjectCSV2 %>% 
+  group_by(VisitorType, IsCanceled) %>% 
+  summarize(AvgBookingChanges = mean(BookingChanges)) %>% 
+  ggplot(aes(x=VisitorType, y=AvgBookingChanges, fill = as.factor(IsCanceled))) + 
+    geom_bar(stat="identity", position=position_dodge())+
+    theme_minimal()
+#Creates a bar plot for cancellations based on visitor type and the average number of booking changes
+
+theme_update(plot.title = element_text(hjust = 0.5))
+ProjectCSV2 %>% 
+  group_by(IsCanceled) %>% 
+  summarize(`Average Booking Changes` = mean(BookingChanges)) %>% 
+  ggplot(aes(x=as.factor(IsCanceled), y=`Average Booking Changes`, fill = "red")) + 
+    geom_bar(stat="identity", position=position_dodge())+
+    theme_minimal() + xlab("Canceled") + ggtitle("Average Booking Changes Based on Canceled or Not")
+ggsave("Booking Changes by Canceled or Not.png", height = 7, width = 13)
+#Creates a bar plot for the average number of booking changes made based on if the booking is cancelled or not
+
+ggplot(ProjectCSV2, aes(x= RequiredCarParkingSpaces, group = IsCanceled)) + 
+    geom_bar(aes(y = ..prop.., fill = factor(..x..)), stat="count") +
+    geom_text(aes( label = scales::percent(..prop..),
+                   y= ..prop.. ), stat= "count", vjust = -.5) +
+    labs(y = "Percent", fill="Required Spaces") +
+    facet_grid(~IsCanceled) +
+    scale_y_continuous(labels = scales::percent) + ggtitle("Probability of this Number of Parking Spaces Given Cancelling or not") + xlab("Required Parking Spaces")
+ggsave('Parking Spaces Prob Cancel.png', height = 7, width = 13)
+#Creates a bar plot showing the probability of having that number of required parking spaces given that they either ultimately cancelled or didn't cancel their reservation
+```
+
+```{r}
+ProjectCSV2 %>% 
+    count(MarketSegment) %>% 
+    mutate(pct = prop.table(n)) %>% 
+    ggplot(aes(x = MarketSegment, y = pct, label = scales::percent(pct))) + 
+    geom_col(position = 'dodge',fill=c("coral", "coral1", "coral2", "coral3", "coral4", "brown4")) + 
+    geom_text(position = position_dodge(width = 0.9),    
+              vjust = -0.5,   
+              size = 3) + 
+    scale_y_continuous(labels = scales::percent) + xlab("Market Segment") + ylab("Percentage") + ggtitle("Distribution Across Market Segments")
+ggsave("Distribution Across Market Segments.png", height = 7, width = 13)
+#Creates a bar plot showing the percentage of customers that fall into each market segment
+
+ProjectCSV2 %>% 
+    count(Meal) %>% 
+    mutate(pct = prop.table(n)) %>% 
+    ggplot(aes(x = Meal, y = pct, label = scales::percent(pct))) + 
+    geom_col(position = 'dodge',fill=c("coral", "coral1", "coral2", "coral3", "coral4")) + 
+    geom_text(position = position_dodge(width = 0.9),    
+              vjust = -0.5,   
+              size = 3) + 
+    scale_y_continuous(labels = scales::percent) + xlab("Meal") + ylab("Percentage") + ggtitle("Distribution For Different Meals")
+ggsave("Distribution Across Meal Options.png", height = 7, width = 13)
+#Creates a bar plot showing the percentage of customers that make each meal choice
+
+ProjectCSV2 %>% 
+  group_by(VisitorType, IsCanceled) %>% 
+  summarize(AvgBookingChanges = mean(BookingChanges)) %>% 
+  ggplot(aes(x=VisitorType, y=AvgBookingChanges, fill = as.factor(IsCanceled))) + 
+    geom_bar(stat="identity", position=position_dodge())+
+    theme_minimal()
+#Creates a bar plot looking at cancellations based on average booking changes and visitor type
+
+ProjectCSV2 %>% 
+  group_by(VisitorType) %>% 
+  summarize(`Average Cancellation Rate` = mean(IsCanceled)) %>% 
+  ggplot(aes(x=VisitorType, y=`Average Cancellation Rate`)) + 
+    geom_bar(fill=c("coral", "coral1", "coral2", "coral3"), stat="identity", position=position_dodge())+
+    theme_minimal() +
+  geom_hline(yintercept=mean(ProjectCSV2$IsCanceled)) + xlab("Visitor Type") + ggtitle("Average Cancellation Rate by Visitor Type")
+ggsave("Average Cancellation Rate by Visitor Type.png", height = 7, width = 13)
+#Creates a bar plot showing the average cancellation rate for each visitor type with a line depicting the overall average cancellation rate
+```
+
+```{r}
+ggplot(RepeatGuestSet, aes(x = as.factor(IsCanceled))) +  
+  geom_bar(fill=c("coral3", "coral4")) + ylab("Count") + ggtitle("Distribution of Cancellations for Repeated Guests") + xlab("Cancellation")
+ggsave("Distribution of Cancellations for Repeated Guests.png", height = 7, width = 13)
+#Creates a bar plot looking at the number of cancellations and non-cancellations among repeated guests
+
+ggplot(CouplesSet, aes(x = as.factor(IsCanceled))) +  
+  geom_bar(fill=c("coral3", "coral4")) + ylab("Count") + ggtitle("Distribution of Cancellations for Couples") + xlab("Cancellation")
+ggsave("Couples Cancellation Distribution.png", height = 7, width = 13)
+#Creates a bar plot that looks at the number of cancellations and non-cancellations for couples
+
+ggplot(ProjectCSV2, aes(x=TotalOfSpecialRequests, group = IsCanceled)) +
+  geom_bar(aes(y=..prop..,fill=as.factor(IsCanceled)), col="black", position = position_dodge(), stat="count") + 
+  geom_text(aes(label=scales::percent(..prop..),y=..prop..),stat="count",vjust=-.5) + 
+  labs(y="Percent",fill="Canceled?") + 
+  scale_y_continuous(labels=scales::percent)
+ggsave("Special Requests and Cancellations.png", height = 7, width = 13)
+#Creates a bar plot that looks at the percentage of cancelled/not cancelled reservation that had each number of special requests
+
+ProjectCSV2$PreviousCancellations[ProjectCSV2$PreviousCancellations>1] <- "2+" 
+ggplot(ProjectCSV2, aes(x=PreviousCancellations, group = IsCanceled)) +
+  geom_bar(aes(y=..prop..,fill=as.factor(IsCanceled)), col="black", position = position_dodge(), stat="count") + 
+  geom_text(aes(label=scales::percent(..prop..),y=..prop..),stat="count",vjust=-.5) + 
+  labs(y="Percent",fill="Canceled?") + 
+  scale_y_continuous(labels=scales::percent)
+ggsave("Previous Cancellations and Cancellations.png", height = 7, width = 13)
+#Creates a bar plot that looks at the percentage of cancelled/not cancelled reservation that had that amount of previous cencellations
+```
+

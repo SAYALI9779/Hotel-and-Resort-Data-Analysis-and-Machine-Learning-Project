@@ -1,0 +1,21 @@
+---
+title: "Logit Model Code"
+author: "Kevin Ivers"
+date: "12/9/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+ProjectLogitModel <- glm(IsCanceled ~ as.factor(DepositType) + as.factor(CustomerType) + BookingChanges + TotalOfSpecialRequests + LeadTime + as.factor(MarketSegment) + Single + Couple + Family + IsRepeatedGuest + PreviousCancellations + TotalStayDuration + I(LeadTime^2), data=ProjectCSV2, family="binomial")
+summary(ProjectLogitModel)
+#Creates and runs the Logit Model
+
+library(stargazer)
+stargazer(ProjectLogitModel, type = "html", title = "Our Project Logit Model", out = "Project Logit Model.html")
+#Creates a nicer visual for the logit model than the R display
+```
+

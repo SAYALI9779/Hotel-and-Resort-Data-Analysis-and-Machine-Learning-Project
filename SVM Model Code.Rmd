@@ -1,0 +1,38 @@
+---
+title: "SVM Code"
+author: "Kevin Ivers"
+date: "12/9/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+ProjectTrainingList <- createDataPartition(y=ProjectCSV2$IsCanceled,p=.60,list=FALSE)
+#generates a list of cases to be included in the training set with 60% of the total data
+ProjectTrainingSet <- ProjectCSV2[ProjectTrainingList,]
+#Creates ProjectTrainingSet: a subset of ProjectCSV with ProjectTrainingList being used as the indices so that those numbers represent the rows included
+ProjectTestSet <- ProjectCSV2[-ProjectTrainingList,]
+#Creates ProjectTestSet: a subset of ProjectCSV with everything but ProjectTrainingList being used as the indices so that those numbers represent the rows included
+
+tr_control <- trainControl(method = "cv", number = 3)
+ProjectSVMModel2 <- train(as.factor(IsCanceled) ~ ., data=ProjectTrainingSet, method="svmRadial", trControl = tr_control, preProc=c("center","scale"))
+#Train the SVM Model
+
+ProjectSVMModel2
+#Runs the SVM Model
+
+ProjectSVMPred <- predict(ProjectSVMModel2, newdata=ProjectTestSet, type = "raw")
+ProjectSVMPred
+#Makes predictions for the ProjectTestSet using the KSVM model
+
+ProjectConfMatrix <- table(ProjectSVMPred,ProjectTestSet$IsCanceled)
+ProjectConfMatrix
+#Manually creates a confusion matrix
+
+sum(diag(ProjectConfMatrix))/sum(ProjectConfMatrix)
+#Calculates the accuracy of the SVM model
+```
+

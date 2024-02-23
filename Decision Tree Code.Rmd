@@ -1,0 +1,21 @@
+---
+title: "Decision Tree Code"
+author: "Kevin Ivers"
+date: "12/9/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(rpart)
+#install.packages("rpart.plot")
+library(rpart.plot)
+library(e1071)
+ProjectTree <- rpart(IsCanceled ~ ., data=ProjectTrainingSet)
+prp(ProjectTree, faclen = 0, cex = 0.8, extra = 1)
+#makes and runs the decision tree
+```
+

@@ -1,0 +1,204 @@
+---
+title: "Initial Visuals Code"
+author: "Kevin Ivers"
+date: "12/9/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+summary(ProjectCSV2[-c(8,9,11,14,15,16,22,23)])
+#Returns summary statistics for all of the numerical variables included in the data set
+```
+
+```{r}
+project <- read.csv("https://intro-datascience.s3.us-east-2.amazonaws.com/Resort01.csv", header=TRUE)
+str(project)
+```
+
+```{r}
+project_new <- data.frame(IsCanceled = as.factor(project$IsCanceled),  
+                     LeadTime = as.factor(project$LeadTime),
+                     StaysInWeekendNights  = as.factor(project$StaysInWeekendNights),
+                     StaysInWeekNights = as.factor(project$StaysInWeekNights),
+                     Adults = as.factor(project$Adults), 
+                     #IsRepeatedGuest = as.factor(project$IsRepeatedGuest)
+                     PreviousCancellations = as.factor(project$PreviousCancellations)
+                     #PreviousBookingsNotCanceled = as.factor(project$PreviousBookingsNotCanceled)
+                       )
+```
+
+```{r}
+project.pca <- prcomp(project[,c(2:7,11,12,13,16)], center = TRUE,scale. = TRUE)
+summary(project.pca)
+#Subsets and investigates the data
+```
+
+```{r}
+sort_canceled <- hotel[order(hotel$IsCanceled),]
+c <- c(1:40060)
+myPlot <- ggplot(sort_canceled, aes(x = c)) 
+myPlot <- myPlot + geom_line(aes(y = LeadTime, col = (IsCanceled)), size = 0.2) + expand_limits( x= c(1, 40000)) + xlab("Number of Bookings")
+myPlot
+#Creates a plot looking at the effect of lead time on cancellations
+```
+
+```{r}
+sort_canceled$Adults
+c <- c(1:40060)
+myPlot1 <- ggplot(sort_canceled, aes(x = c))
+        # here we are using ggplot to plot a line graph where data set used is economics
+        # and x axis is date from economics
+myPlot1 <- myPlot1 + geom_point(aes(y = StaysInWeekendNights, col = IsCanceled)) + expand_limits( x= c(1, 40000))+ xlab("Number of Bookings")
+        # here we are adding y axis to the graph and y axis is psavert from economics
+myPlot1
+```
+
+```{r}
+c <- c(1:40060)
+myPlot2 <- ggplot(sort_canceled, aes(x = c))
+        # here we are using ggplot to plot a line graph where data set used is economics
+        # and x axis is date from economics
+myPlot2 <- myPlot2 + geom_point(aes(y = Adults, col = IsCanceled)) + expand_limits( x= c(1, 40000)) + xlab("Number of Bookings")
+        # here we are adding y axis to the graph and y axis is psavert from economics
+myPlot2
+```
+
+```{r}
+myPlot3 <- ggplot(sort_canceled, aes(x = c))
+        # here we are using ggplot to plot a line graph where data set used is economics
+        # and x axis is date from economics
+myPlot3 <- myPlot3 + geom_point(aes(y = PreviousCancellations, col = IsCanceled)) + expand_limits( x= c(1, 40000)) + xlab("Number of Bookings")
+        # here we are adding y axis to the graph and y axis is psavert from economics
+myPlot3
+```
+
+```{r}
+c <- c(1:40060)
+myPlot15 <- ggplot(sort_canceled, aes(x = c))
+        # here we are using ggplot to plot a line graph where data set used is economics
+        # and x axis is date from economics
+myPlot15 <- myPlot + geom_boxplot(aes(y = PreviousCancellations, col = IsCanceled)) + expand_limits( x= c(1, 40000)) 
+        # here we are adding y axis to the graph and y axis is psavert from economics
+myPlot15
+```
+ 
+ Explore the data:
+```{r}
+library(RCurl) # using the library RCurl
+library(jsonlite) # using the library jsonlite
+head(project)
+#view(project)
+no_dep <- hotel[(hotel$DepositType == "No Deposit"),]
+no_dep # Rows of no deposit are 38199 
+
+can_hotel <- hotel[(hotel$IsCanceled == 1),]
+can_hotel
+
+no_dep_can <- can_hotel[(can_hotel$DepositType == "No Deposit"),]
+```
+
+```{r}
+#no_dep_can <- (can_hotel$DepositType == "No Deposit")
+length(no_dep_can[no_dep_can== TRUE])
+
+can_hotel <- (hotel$IsCanceled == 1)
+length(can_hotel[can_hotel== TRUE])
+
+length(can_hotel[can_hotel== TRUE]) - length(no_dep_can[no_dep_can== TRUE])
+# Number of people canceled hotel booking with no deposit 1672
+
+```
+ 
+```{r}
+a <- length(hotel$IsCanceled)
+no_dep <- (hotel$DepositType == "No Deposit")
+length(no_dep[no_dep == TRUE])
+
+length(hotel$IsCanceled) - length(no_dep[no_dep == TRUE])
+# 27.7 % consist of people who canceled the hotel bookings
+# Out of 27.7% 1672 are those who did not pay the deposit earlier
+# Out of 72.3% only 189 people canceled the booking without no deposit 
+```
+ 
+```{r}
+colSums(is.na(hotel))
+hotel$Meal <- as.factor(hotel$Meal)
+levels(hotel$Meal) <- c("BB", "FB", "HB", "SC", "SC")
+table(hotel$Meal)
+#Creates a table for meal choices
+```
+ 
+```{r}
+hotel$IsRepeatedGuest <- as.factor(hotel$IsRepeatedGuest)
+hotel$IsCanceled <- as.factor(hotel$IsCanceled)
+table(hotel$IsCanceled)
+#Creates a table of Cancellations
+```
+
+```{r}
+ProjectCSV2 %>% 
+    count(VisitorType) %>% 
+    mutate(pct = prop.table(n)) %>% 
+    ggplot(aes(x = "", y = pct, fill=VisitorType)) +
+    geom_bar(stat="identity", col="black") + 
+    coord_polar("y",start=0) + theme_void() + 
+    scale_y_continuous(labels = scales::percent) + ggtitle("Pie Chart of Visitor Type Breakdown for Returning Guests")
+ggsave("Returning Guests Pie Chart.png", height = 7, width = 13)
+#Creates a pie chart of the proportion of returning customers that fall into each visitor type
+```
+
+```{r}
+ProjectCSV2 %>%
+  filter(Couple == 1) -> CouplesSet
+#Filters the data set to only include customers that are couples
+CouplesSet %>% 
+  group_by(MarketSegment) %>% 
+  summarize(`Average Cancellation Rate` = mean(IsCanceled)) %>% 
+  ggplot(aes(x=MarketSegment, y=`Average Cancellation Rate`)) + 
+    geom_bar(fill=c("coral", "coral1", "coral2", "coral3", "coral4", "brown4"), stat="identity", position=position_dodge())+
+    theme_minimal() +
+  geom_hline(yintercept=mean(CouplesSet$IsCanceled)) + xlab("Market Segment") + ggtitle("Average Cancellation Rate Across Market Segments")
+ggsave("Couples Cancellation Distribution Market Segment.png", height = 7, width = 13)
+#Creates a bar plot showing the average cancellation rate for couples across market segments with a line showing the overall average cancellation rate for couples
+```
+
+```{r}
+ProjectCSV2 %>% 
+  group_by(VisitorType) %>% 
+  summarize(`Average Cancellation Rate` = mean(IsCanceled)) %>% 
+  ggplot(aes(x=VisitorType, y=`Average Cancellation Rate`)) + 
+    geom_bar(fill=c("coral", "coral1", "coral2", "coral3"), stat="identity", position=position_dodge())+
+    theme_minimal() +
+  geom_hline(yintercept=mean(ProjectCSV2$IsCanceled)) + xlab("Visitor Type") + ggtitle("Average Cancellation Rate by Visitor Type")
+ggsave("Average Cancellation Rate by Visitor Type.png", height = 7, width = 13)
+#Creates a bar plot showing the average cancellation rate for each visitor type with a line depicting the overall average cancellation rate
+
+ProjectCSV2 %>% 
+    count(IsCanceled = factor(IsCanceled)) %>% 
+    mutate(pct = prop.table(n)) %>% 
+    ggplot(aes(x = IsCanceled, y = pct, label = scales::percent(pct))) + 
+    geom_col(position = 'dodge',fill=c("coral3", "coral4")) + 
+    geom_text(position = position_dodge(width = 0.9),    
+              vjust = -0.5,   
+              size = 3) + 
+    scale_y_continuous(labels = scales::percent) + xlab("Cancelled?") + ylab("Percentage") + ggtitle("Distribution of Cancellations")
+ggsave("Distribution of Cancellations.png", height = 7, width = 13)
+#Creates a bar plot showing the percentage of customers that cancelled or did not
+
+ProjectCSV2 %>% 
+    count(DepositType, IsCanceled = factor(IsCanceled)) %>% 
+    mutate(pct = prop.table(n)) %>% 
+    ggplot(aes(x = DepositType, y = pct, label = scales::percent(pct))) + 
+    geom_col(position = 'dodge',fill=c("coral", "coral1","coral2", "coral3", "coral4", "brown4")) + 
+    geom_text(position = position_dodge(width = 0.9),    
+              vjust = -0.5,   
+              size = 3) + facet_wrap(~IsCanceled) +
+    scale_y_continuous(labels = scales::percent) + xlab("DepositType") + ylab("Percentage") + ggtitle("Distribution of Deposit Types")
+ggsave("Distribution of Deposit Types and Cancellations.png", height = 7, width = 13)
+#Creates a bar plot that looks at the percentage of the total number of customers that falls into each group combination of deposit type of cancellation/non-cancellation
+```
+

@@ -1,0 +1,67 @@
+---
+output:
+  html_document: default
+  pdf_document: default
+---
+https://intro-datascience.s3.us-east-2.amazonaws.com/Resort01.csv
+```{r}
+library(arules)
+library(arulesViz)
+
+library(tidyverse)
+data<- read_csv('https://intro-datascience.s3.us-east-2.amazonaws.com/Resort01.csv')
+
+hotel<-data
+```
+```{r}
+hotel_ASM<-data.frame(IsCanceled=as.factor(hotel$IsCanceled),
+                     Leadtime=as.factor(hotel$LeadTime),
+                     StaysInWeekendNights=as.factor(hotel$StaysInWeekendNights),
+                     StaysInWeekNights=as.factor(hotel$StaysInWeekNights),
+                     Adults=as.factor(hotel$Adults),
+                     Children=as.factor(hotel$Children),
+                     Babies=as.factor(hotel$Babies),
+                     Country=as.factor(hotel$Country),
+                     MarketSegment=as.factor(hotel$MarketSegment),
+                     IsRepeatedGuest=as.factor(hotel$IsRepeatedGuest),
+                     PreviousCancellations=as.factor(hotel$PreviousCancellations),
+                     PreviousBookingsNotCanceled=as.factor(hotel$PreviousBookingsNotCanceled),
+                     ReservedRoomType=as.factor(hotel$ReservedRoomType),
+                     AssignedRoomType=as.factor(hotel$AssignedRoomType),
+                     BookingChanges=as.factor(hotel$BookingChanges),
+                     DepositType=as.factor(hotel$DepositType),
+                     CustomerType=as.factor(hotel$CustomerType),
+                     RequiredCarParkingSpaces=as.factor(hotel$RequiredCarParkingSpaces),
+                     TotalOfSpecialRequests=as.factor(hotel$TotalOfSpecialRequests))
+
+hotel_ASM_X <- as(hotel_ASM, "transactions")
+
+rules <- apriori(hotel_ASM_X, parameter=list(supp=0.05, conf=0.8), control=list(verbose=F), appearance=list(default="lhs",rhs=("IsCanceled=1")))
+
+inspect(rules)
+inspectDT(rules) 
+#install.packages("kableExtra")
+#library(kableExtra)
+#Table12 %>%
+#  kbl(caption = "ASM Table") %>%
+#  kable_classic(full_width=F, html_font = "cambria") %>%
+#  save_kable(file="ASMTable.html", self_contained=T)
+```
+```{r}
+highLift <- rules[quality(rules)$lift > 3.0] 
+plot(rules)
+#plot(rules, method = "grouped")
+plot(rules, method = "graph", control = list(type="items"))
+inspect(highLift)
+inspectDT(highLift)
+# Country Portugal
+# Market Segment is Group
+# No Booking Changes
+# Not a repeated guest
+# 0 Special Requests
+# Required Car Parking space is 0
+# Children 0
+# Babies 0
+# Previous Booking Not Canceled = 0
+```
+

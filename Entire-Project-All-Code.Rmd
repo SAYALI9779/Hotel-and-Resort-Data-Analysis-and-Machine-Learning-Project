@@ -1,0 +1,657 @@
+---
+title: "Project"
+author: "Kevin Ivers"
+date: "11/11/2021"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+ProjectCSV <- read_csv("https://intro-datascience.s3.us-east-2.amazonaws.com/Resort01.csv")
+ProjectCSV %>%
+  filter(IsCanceled == 1) -> CanceledSet
+ProjectCSV %>%
+  filter(IsCanceled == 0) -> NotCanceledSet
+```
+
+```{r}
+library(kernlab)
+library(readr)
+library(caret)
+
+ProjectCSV2 <- ProjectCSV[,-c(9,14,15)]
+#Subsets the data set to remove problematic variables for the SVM Model
+
+ProjectCSV2$Family <- ifelse(ProjectCSV2$Children > 0 | ProjectCSV2$Babies > 0, 1,0)
+#Creates a Family column for if the customers have children and or babies
+ProjectCSV2$Couple <- ifelse(ProjectCSV2$Adults == 2 & ProjectCSV2$Family == 0, 1,0)
+#Creates a Couple column for if the customers are a couple (2 adults and no children)
+ProjectCSV2$Single <- ifelse(ProjectCSV2$Adults == 1 & ProjectCSV2$Family == 0, 1,0)
+#Creates a Single Column for if the customer is just 1 adult
+ProjectCSV2$TotalStayDuration <- ProjectCSV2$StaysInWeekendNights + ProjectCSV2$StaysInWeekNights
+#Creates a Total Stay Duration column that finds the total length of stay, not caring about weekend or weekday
+ProjectCSV2$VisitorType <- ifelse(ProjectCSV2$Family == 1, "Family", ifelse(ProjectCSV2$Couple == 1,"Couple",ifelse(ProjectCSV2$Single == 1,"Single", "Other")))
+#Creates a vistior type that shows if it is a family, couple, single traveler, or other group that doesn't fit any criteria
+ProjectCSV2$RequiredCarParkingSpaces[ProjectCSV2$RequiredCarParkingSpaces>1] <- "2+" 
+#Adjusts any customers requesting 2+ parking spaces to reflect that because of the small sample of individual numbers above 1
+
+
+
+ProjectCSV$Family <- ifelse(ProjectCSV$Children > 0 | ProjectCSV$Babies > 0, 1,0)
+ProjectCSV$Couple <- ifelse(ProjectCSV$Adults == 2 & ProjectCSV$Family == 0, 1,0)
+ProjectCSV$Single <- ifelse(ProjectCSV$Adults == 1 & ProjectCSV$Family == 0, 1,0)
+ProjectCSV$TotalStayDuration <- ProjectCSV$StaysInWeekendNights + ProjectCSV$StaysInWeekNights
+ProjectCSV$VisitorType <- ifelse(ProjectCSV$Family == 1, "Family", ifelse(ProjectCSV$Couple == 1,"Couple",ifelse(ProjectCSV$Single == 1,"Single", "Other")))
+ProjectCSV$DoNotGetRoomChoice <- ifelse(ProjectCSV$ReservedRoomType != ProjectCSV$AssignedRoomType,1,0)
+#Does what was stated above but for the original, unsubsetted dataset
+
+
+ProjectTrainingList <- createDataPartition(y=ProjectCSV2$IsCanceled,p=.60,list=FALSE)
+#generates a list of cases to be included in the training set with 60% of the total data
+ProjectTrainingSet <- ProjectCSV2[ProjectTrainingList,]
+#Creates ProjectTrainingSet: a subset of ProjectCSV with ProjectTrainingList being used as the indices so that those numbers represent the rows included
+ProjectTestSet <- ProjectCSV2[-ProjectTrainingList,]
+#Creates ProjectTestSet: a subset of ProjectCSV with everything but ProjectTrainingList being used as the indices so that those numbers represent the rows included
+
+tr_control <- trainControl(method = "cv", number = 3)
+ProjectSVMModel2 <- train(as.factor(IsCanceled) ~ ., data=ProjectTrainingSet, method="svmRadial", trControl = tr_control, preProc=c("center","scale"))
+#Train the SVM Model
+```
+
+```{r}
+ProjectSVMModel2
+#Runs the SVM Model
+
+ProjectSVMPred <- predict(ProjectSVMModel2, newdata=ProjectTestSet, type = "raw")
+ProjectSVMPred
+#Makes predictions for the ProjectTestSet using the KSVM model
+```
+
+```{r}
+ProjectConfMatrix <- table(ProjectSVMPred,ProjectTestSet$IsCanceled)
+ProjectConfMatrix
+#Manually creates a confusion matrix
+
+sum(diag(ProjectConfMatrix))/sum(ProjectConfMatrix)
+#Calculates the accuracy of the SVM model
+```
+
+```{r}
+library(rpart)
+#install.packages("rpart.plot")
+library(rpart.plot)
+library(e1071)
+ProjectTree <- rpart(IsCanceled ~ ., data=ProjectTrainingSet)
+prp(ProjectTree, faclen = 0, cex = 0.8, extra = 1)
+#makes and runs the decision tree
+```
+
+```{r}
+ProjectLogitModel <- glm(IsCanceled ~ as.factor(DepositType) + as.factor(CustomerType) + BookingChanges + TotalOfSpecialRequests + LeadTime + as.factor(MarketSegment) + Single + Couple + Family + IsRepeatedGuest + PreviousCancellations + TotalStayDuration + I(LeadTime^2), data=ProjectCSV2, family="binomial")
+summary(ProjectLogitModel)
+#Creates and runs the Logit Model
+
+library(stargazer)
+stargazer(ProjectLogitModel, type = "html", title = "Our Project Logit Model", out = "Project Logit Model.html")
+#Creates a nicer visual for the logit model than the R display
+```
+
+```{r}
+ProjectCSV2 %>% 
+  group_by(MarketSegment, IsCanceled) %>% 
+  summarize(AvgLeadTime = mean(LeadTime)) %>% 
+  ggplot(aes(x=MarketSegment, y=AvgLeadTime, fill = as.factor(IsCanceled))) + 
+    geom_bar(stat="identity", position=position_dodge())+
+    theme_minimal() + xlab("Market Segment") + ylab("Advance Booking Time") + ggtitle("Cancellations by Market Segment and Advance Booking Time")
+ggsave("Cancellations by Market Segment and Advance Booking Time.png", height = 7, width = 13)
+#creates a bar plot for cancellations based on the customer's market segment and average lead time
+
+ProjectCSV2 %>% 
+  group_by(MarketSegment, IsCanceled) %>% 
+  summarize(AvgTotalStayDuration = mean(TotalStayDuration)) %>% 
+  ggplot(aes(x=MarketSegment, y=AvgTotalStayDuration, fill = as.factor(IsCanceled))) + 
+    geom_bar(stat="identity", position=position_dodge())+
+    theme_minimal()
+#Creates a bar plot for cancellations based on the customer's market segment and their average total stay duration
+
+ProjectCSV2 %>% 
+  group_by(CustomerType, IsCanceled) %>% 
+  summarize(AvgLeadTime = mean(LeadTime)) %>% 
+  ggplot(aes(x=CustomerType, y=AvgLeadTime, fill = as.factor(IsCanceled))) + 
+    geom_bar(stat="identity", position=position_dodge())+
+    theme_minimal() + ylab("Advance Booking Time") + xlab("Customer Type") + ggtitle("Cancellations By Customer Time and Advance Booking Time")
+ggsave("Cancellations By Customer Time and Advance Booking Time.png", height = 7, width = 13)
+#Creates a bar plot for cancellations based on the customer type and average lead time
+
+ProjectCSV2 %>% 
+  group_by(CustomerType, IsCanceled) %>% 
+  summarize(AvgTotalStayDuration = mean(TotalStayDuration)) %>% 
+  ggplot(aes(x=CustomerType, y=AvgTotalStayDuration, fill = as.factor(IsCanceled))) + 
+    geom_bar(stat="identity", position=position_dodge())+
+    theme_minimal()
+ggsave("Cancellations By Customer Type and Average Stay Duration.png", height = 7, width = 13)
+#Creates a bar plot for cancellations based on the customer type and their average total stay duration
+
+ProjectCSV2 %>% 
+  group_by(VisitorType, IsCanceled) %>% 
+  summarize(AvgTotalStayDuration = mean(TotalStayDuration)) %>% 
+  ggplot(aes(x=VisitorType, y=AvgTotalStayDuration, fill = as.factor(IsCanceled))) + 
+    geom_bar(stat="identity", position=position_dodge())+
+    theme_minimal()
+ggsave("Cancellations By Visitor Type and Average Stay Duration.png", height = 7, width = 13)
+#Creates a bar plot for cancellations based on the visitor type and their average total stay duration
+
+ProjectCSV2 %>% 
+  group_by(VisitorType, IsCanceled) %>% 
+  summarize(`Pct of Customers that are Repeat` = mean(IsRepeatedGuest)) %>% 
+  ggplot(aes(x=VisitorType, y=`Pct of Customers that are Repeat`, fill = as.factor(IsCanceled))) + 
+    geom_bar(stat="identity", position=position_dodge())+
+    theme_minimal() + xlab("Visitor Type") + ggtitle("Repeat Customers Across Visitor Types by Cancellations")
+ggsave("Cancellations Based on Repeat Customers Across Visitor Types.png", height = 7, width = 13)
+#Creates a bar plot for cancellations based on visitor type and the percentage of customers that are repeat customers
+
+ProjectCSV %>% 
+  group_by(VisitorType, IsCanceled) %>% 
+  summarize(AvgDoNotGetRoomChoice = mean(DoNotGetRoomChoice)) %>% 
+  ggplot(aes(x=VisitorType, y=AvgDoNotGetRoomChoice, fill = as.factor(IsCanceled))) + 
+    geom_bar(stat="identity", position=position_dodge())+
+    theme_minimal() + xlab("Visitor Type") + ylab("Percentage That do Not get Preferred Room Choice") + ggtitle("Cancellations across Visitor Types Based on Not Getting Preferred Room")
+ggsave("Cancellations Based on Not Getting Preferred Room and Visitor Type.png", height = 7, width = 13)
+#Creates a bar plot for cancellations based on visitor type and the percentage of customers that don't get their preferred room choice
+
+ProjectCSV2 %>% 
+  group_by(VisitorType, IsCanceled) %>% 
+  summarize(AvgBookingChanges = mean(BookingChanges)) %>% 
+  ggplot(aes(x=VisitorType, y=AvgBookingChanges, fill = as.factor(IsCanceled))) + 
+    geom_bar(stat="identity", position=position_dodge())+
+    theme_minimal()
+#Creates a bar plot for cancellations based on visitor type and the average number of booking changes
+
+theme_update(plot.title = element_text(hjust = 0.5))
+ProjectCSV2 %>% 
+  group_by(IsCanceled) %>% 
+  summarize(`Average Booking Changes` = mean(BookingChanges)) %>% 
+  ggplot(aes(x=as.factor(IsCanceled), y=`Average Booking Changes`, fill = "red")) + 
+    geom_bar(stat="identity", position=position_dodge())+
+    theme_minimal() + xlab("Canceled") + ggtitle("Average Booking Changes Based on Canceled or Not")
+ggsave("Booking Changes by Canceled or Not.png", height = 7, width = 13)
+#Creates a bar plot for the average number of booking changes made based on if the booking is cancelled or not
+
+ggplot(ProjectCSV2, aes(x= RequiredCarParkingSpaces, group = IsCanceled)) + 
+    geom_bar(aes(y = ..prop.., fill = factor(..x..)), stat="count") +
+    geom_text(aes( label = scales::percent(..prop..),
+                   y= ..prop.. ), stat= "count", vjust = -.5) +
+    labs(y = "Percent", fill="Required Spaces") +
+    facet_grid(~IsCanceled) +
+    scale_y_continuous(labels = scales::percent) + ggtitle("Probability of this Number of Parking Spaces Given Cancelling or not") + xlab("Required Parking Spaces")
+ggsave('Parking Spaces Prob Cancel.png', height = 7, width = 13)
+#Creates a bar plot showing the probability of having that number of required parking spaces given that they either ultimately cancelled or didn't cancel their reservation
+```
+
+```{r}
+ProjectCSV2 %>% 
+    count(MarketSegment) %>% 
+    mutate(pct = prop.table(n)) %>% 
+    ggplot(aes(x = MarketSegment, y = pct, label = scales::percent(pct))) + 
+    geom_col(position = 'dodge',fill=c("coral", "coral1", "coral2", "coral3", "coral4", "brown4")) + 
+    geom_text(position = position_dodge(width = 0.9),    
+              vjust = -0.5,   
+              size = 3) + 
+    scale_y_continuous(labels = scales::percent) + xlab("Market Segment") + ylab("Percentage") + ggtitle("Distribution Across Market Segments")
+ggsave("Distribution Across Market Segments.png", height = 7, width = 13)
+#Creates a bar plot showing the percentage of customers that fall into each market segment
+
+ProjectCSV2 %>% 
+    count(Meal) %>% 
+    mutate(pct = prop.table(n)) %>% 
+    ggplot(aes(x = Meal, y = pct, label = scales::percent(pct))) + 
+    geom_col(position = 'dodge',fill=c("coral", "coral1", "coral2", "coral3", "coral4")) + 
+    geom_text(position = position_dodge(width = 0.9),    
+              vjust = -0.5,   
+              size = 3) + 
+    scale_y_continuous(labels = scales::percent) + xlab("Meal") + ylab("Percentage") + ggtitle("Distribution For Different Meals")
+ggsave("Distribution Across Meal Options.png", height = 7, width = 13)
+#Creates a bar plot showing the percentage of customers that make each meal choice
+
+ProjectCSV2 %>% 
+  group_by(VisitorType, IsCanceled) %>% 
+  summarize(AvgBookingChanges = mean(BookingChanges)) %>% 
+  ggplot(aes(x=VisitorType, y=AvgBookingChanges, fill = as.factor(IsCanceled))) + 
+    geom_bar(stat="identity", position=position_dodge())+
+    theme_minimal()
+#Creates a bar plot looking at cancellations based on average booking changes and visitor type
+
+ProjectCSV2 %>% 
+  group_by(VisitorType) %>% 
+  summarize(`Average Cancellation Rate` = mean(IsCanceled)) %>% 
+  ggplot(aes(x=VisitorType, y=`Average Cancellation Rate`)) + 
+    geom_bar(fill=c("coral", "coral1", "coral2", "coral3"), stat="identity", position=position_dodge())+
+    theme_minimal() +
+  geom_hline(yintercept=mean(ProjectCSV2$IsCanceled)) + xlab("Visitor Type") + ggtitle("Average Cancellation Rate by Visitor Type")
+ggsave("Average Cancellation Rate by Visitor Type.png", height = 7, width = 13)
+#Creates a bar plot showing the average cancellation rate for each visitor type with a line depicting the overall average cancellation rate
+```
+
+```{r}
+ProjectCSV2 %>%
+  filter(IsRepeatedGuest == 1) -> RepeatGuestSet
+#Subsets the data to only customers that are returning guests
+ggplot(RepeatGuestSet, aes(x = as.factor(IsCanceled))) +  
+  geom_bar(fill=c("coral3", "coral4")) + ylab("Count") + ggtitle("Distribution of Cancellations for Repeated Guests") + xlab("Cancellation")
+ggsave("Distribution of Cancellations for Repeated Guests.png", height = 7, width = 13)
+#Creates a bar plot looking at the number of cancellations and non-cancellations among repeated guests
+
+ProjectCSV2 %>% 
+    count(VisitorType) %>% 
+    mutate(pct = prop.table(n)) %>% 
+    ggplot(aes(x = "", y = pct, fill=VisitorType)) +
+    geom_bar(stat="identity", col="black") + 
+    coord_polar("y",start=0) + theme_void() + 
+    scale_y_continuous(labels = scales::percent) + ggtitle("Pie Chart of Visitor Type Breakdown for Returning Guests")
+ggsave("Returning Guests Pie Chart.png", height = 7, width = 13)
+#Creates a pie chart of the proportion of returning customers that fall into each visitor type
+```
+
+```{r}
+ProjectCSV2 %>%
+  filter(Couple == 1) -> CouplesSet
+#Filters the data set to only include customers that are couples
+ggplot(CouplesSet, aes(x = as.factor(IsCanceled))) +  
+  geom_bar(fill=c("coral3", "coral4")) + ylab("Count") + ggtitle("Distribution of Cancellations for Couples") + xlab("Cancellation")
+ggsave("Couples Cancellation Distribution.png", height = 7, width = 13)
+#Creates a bar plot that looks at the number of cancellations and non-cancellations for couples
+
+CouplesSet %>% 
+  group_by(MarketSegment) %>% 
+  summarize(`Average Cancellation Rate` = mean(IsCanceled)) %>% 
+  ggplot(aes(x=MarketSegment, y=`Average Cancellation Rate`)) + 
+    geom_bar(fill=c("coral", "coral1", "coral2", "coral3", "coral4", "brown4"), stat="identity", position=position_dodge())+
+    theme_minimal() +
+  geom_hline(yintercept=mean(CouplesSet$IsCanceled)) + xlab("Market Segment") + ggtitle("Average Cancellation Rate Across Market Segments")
+ggsave("Couples Cancellation Distribution Market Segment.png", height = 7, width = 13)
+#Creates a bar plot showing the average cancellation rate for couples across market segments with a line showing the overall average cancellation rate for couples
+```
+
+```{r}
+ggplot(ProjectCSV2, aes(x=TotalOfSpecialRequests, group = IsCanceled)) +
+  geom_bar(aes(y=..prop..,fill=as.factor(IsCanceled)), col="black", position = position_dodge(), stat="count") + 
+  geom_text(aes(label=scales::percent(..prop..),y=..prop..),stat="count",vjust=-.5) + 
+  labs(y="Percent",fill="Canceled?") + 
+  scale_y_continuous(labels=scales::percent)
+ggsave("Special Requests and Cancellations.png", height = 7, width = 13)
+#Creates a bar plot that looks at the percentage of cancelled/not cancelled reservation that had each number of special requests
+
+ProjectCSV2$PreviousCancellations[ProjectCSV2$PreviousCancellations>1] <- "2+" 
+ggplot(ProjectCSV2, aes(x=PreviousCancellations, group = IsCanceled)) +
+  geom_bar(aes(y=..prop..,fill=as.factor(IsCanceled)), col="black", position = position_dodge(), stat="count") + 
+  geom_text(aes(label=scales::percent(..prop..),y=..prop..),stat="count",vjust=-.5) + 
+  labs(y="Percent",fill="Canceled?") + 
+  scale_y_continuous(labels=scales::percent)
+ggsave("Previous Cancellations and Cancellations.png", height = 7, width = 13)
+#Creates a bar plot that looks at the percentage of cancelled/not cancelled reservation that had that amount of previous cencellations
+```
+
+```{r}
+summary(ProjectCSV2[-c(8,9,11,14,15,16,22,23)])
+#Returns summary statistics for all of the numerical variables included in the data set
+```
+
+```{r}
+ProjectCSV2 %>% 
+    count(IsCanceled = factor(IsCanceled)) %>% 
+    mutate(pct = prop.table(n)) %>% 
+    ggplot(aes(x = IsCanceled, y = pct, label = scales::percent(pct))) + 
+    geom_col(position = 'dodge',fill=c("coral3", "coral4")) + 
+    geom_text(position = position_dodge(width = 0.9),    
+              vjust = -0.5,   
+              size = 3) + 
+    scale_y_continuous(labels = scales::percent) + xlab("Cancelled?") + ylab("Percentage") + ggtitle("Distribution of Cancellations")
+ggsave("Distribution of Cancellations.png", height = 7, width = 13)
+#Creates a bar plot showing the percentage of customers that cancelled or did not
+```
+
+```{r}
+ProjectCSV2 %>% 
+    count(DepositType, IsCanceled = factor(IsCanceled)) %>% 
+    mutate(pct = prop.table(n)) %>% 
+    ggplot(aes(x = DepositType, y = pct, label = scales::percent(pct))) + 
+    geom_col(position = 'dodge',fill=c("coral", "coral1","coral2", "coral3", "coral4", "brown4")) + 
+    geom_text(position = position_dodge(width = 0.9),    
+              vjust = -0.5,   
+              size = 3) + facet_wrap(~IsCanceled) +
+    scale_y_continuous(labels = scales::percent) + xlab("DepositType") + ylab("Percentage") + ggtitle("Distribution of Deposit Types")
+ggsave("Distribution of Deposit Types and Cancellations.png", height = 7, width = 13)
+#Creates a bar plot that looks at the percentage of the total number of customers that falls into each group combination of deposit type of cancellation/non-cancellation
+```
+
+```{r}
+library(tidyverse)
+dfSimple	<- data.frame(ProjectCSV%>%count(Country))
+View(dfSimple)
+
+dfSimple$n_percent <- dfSimple$n / sum(dfSimple$n) * 100
+dfSimple$n_percent <- dfSimple$n_percent* 100
+View(n_percent)
+
+library(rworldmap)
+library(dplyr)
+
+Map_p1<-joinCountryData2Map(dfSimple, joinCode = "ISO3", nameJoinColumn = "Country")
+
+library(RColorBrewer)
+colourPalette <- brewer.pal(4,'BuGn')
+
+x <- mapCountryData(mapToPlot = Map_p1, nameColumnToPlot = "n_percent", catMethod = "fixedWidth", mapTitle = 'Minimum and Maximum Percentage of Travellers from the Country',colourPalette = colourPalette )
+
+View(x)
+#Creates a map looking at the countries with the highest and lowest percentages of travelers
+```
+
+```{r}
+dfSimple	<- data.frame(ProjectCSV%>%count(Country))
+View(dfSimple)
+
+dfSimple_sorted <- dfSimple%>%arrange(desc(n))
+dfSimple_sorted
+visitedMap <-dfSimple_sorted
+library(rworldmap)
+library(dplyr)
+
+colnames(visitedMap) <- c('country','visited')
+
+visitedMap1 <- joinCountryData2Map(visitedMap, 
+                                  joinCode = "ISO3",
+                                  nameJoinColumn = "country")
+
+library(RColorBrewer)
+colourPalette <- brewer.pal(4,'BuGn')
+
+mapParams <- mapCountryData(visitedMap1, 
+                            nameColumnToPlot="visited",
+                            oceanCol = "azure2",
+                            catMethod = "categorical",
+                            missingCountryCol = gray(.8),
+                            colourPalette = colourPalette,
+                            addLegend = F,
+                            mapTitle = "",
+                            border = NA)
+#Creates a map showing the distribution of which countries customers are from
+```
+
+
+
+```{r}
+data<-ProjectCSV[c("Country", "IsCanceled")]
+
+library(epiDisplay)
+tab1(data$IsCanceled, sort.group = "decreasing", cum.percent = FALSE)
+
+data1 <- data %>% 
+  rename(
+    country = Country,
+     )
+View(data1)
+
+library(rworldmap)
+library(dplyr)
+
+cancelation_rate<-data1%>%group_by(country)%>%summarize(percentage=sum(IsCanceled)/n())
+
+cancelation_rate
+
+library(RColorBrewer)
+colourPalette <- brewer.pal(4,'BuGn')
+
+spat<-joinCountryData2Map(cancelation_rate, joinCode = "ISO3", nameJoinColumn = "country")
+mapCountryData(mapToPlot = spat, nameColumnToPlot = "percentage", catMethod = "fixedWidth", mapTitle = 'Percentage of Cancellations', colourPalette = colourPalette )
+?mapCountryData
+#Creates a map looking at the percentage of cancellations for each country
+
+
+#References:
+#1: https://slcladal.github.io/maps.html
+#We also referred the lab assignments
+
+```
+
+```{r}
+hotel<-ProjectCSV
+```
+
+```{r}
+library(arules)
+library(arulesViz)
+hotel_ASM<-data.frame(IsCanceled=as.factor(hotel$IsCanceled),
+                     Leadtime=as.factor(hotel$LeadTime),
+                     StaysInWeekendNights=as.factor(hotel$StaysInWeekendNights),
+                     StaysInWeekNights=as.factor(hotel$StaysInWeekNights),
+                     Adults=as.factor(hotel$Adults),
+                     Children=as.factor(hotel$Children),
+                     Babies=as.factor(hotel$Babies),
+                     Country=as.factor(hotel$Country),
+                     MarketSegment=as.factor(hotel$MarketSegment),
+                     IsRepeatedGuest=as.factor(hotel$IsRepeatedGuest),
+                     PreviousCancellations=as.factor(hotel$PreviousCancellations),
+                     PreviousBookingsNotCanceled=as.factor(hotel$PreviousBookingsNotCanceled),
+                     ReservedRoomType=as.factor(hotel$ReservedRoomType),
+                     AssignedRoomType=as.factor(hotel$AssignedRoomType),
+                     BookingChanges=as.factor(hotel$BookingChanges),
+                     DepositType=as.factor(hotel$DepositType),
+                     CustomerType=as.factor(hotel$CustomerType),
+                     RequiredCarParkingSpaces=as.factor(hotel$RequiredCarParkingSpaces),
+                     TotalOfSpecialRequests=as.factor(hotel$TotalOfSpecialRequests))
+#Adjusts the data to fit for the ASM Model
+
+hotel_ASM_X <- as(hotel_ASM, "transactions")
+
+rules <- apriori(hotel_ASM_X, parameter=list(supp=0.05, conf=0.8), control=list(verbose=F), appearance=list(default="lhs",rhs=("IsCanceled=1")))
+
+inspect(rules)
+inspectDT(rules) 
+#Creates and investigates the ASM Model
+#install.packages("kableExtra")
+#library(kableExtra)
+#Table12 %>%
+#  kbl(caption = "ASM Table") %>%
+#  kable_classic(full_width=F, html_font = "cambria") %>%
+#  save_kable(file="ASMTable.html", self_contained=T)
+```
+```{r}
+highLift <- rules[quality(rules)$lift > 3.0] 
+plot(rules)
+#plot(rules, method = "grouped")
+plot(rules, method = "graph", control = list(type="items"))
+inspect(highLift)
+inspectDT(highLift)
+# Country Portugal
+# Market Segment is Group
+# No Booking Changes
+# Not a repeated guest
+# 0 Special Requests
+# Required Car Parking space is 0
+# Children 0
+# Babies 0
+# Previous Booking Not Canceled = 0
+#Creates a visual for the ASM and looks at some of the rules
+```
+
+```{r}
+table(ProjectCSV2$VisitorType)
+#Shows a table of the breakdown by visitor type
+```
+
+```{r}
+project <- read.csv("https://intro-datascience.s3.us-east-2.amazonaws.com/Resort01.csv", header=TRUE)
+project_new <- data.frame(IsCanceled = as.factor(project$IsCanceled),  
+                     LeadTime = as.factor(project$LeadTime),
+                     StaysInWeekendNights  = as.factor(project$StaysInWeekendNights),
+                     StaysInWeekNights = as.factor(project$StaysInWeekNights),
+                     Adults = as.factor(project$Adults), 
+                     #IsRepeatedGuest = as.factor(project$IsRepeatedGuest)
+                     PreviousCancellations = as.factor(project$PreviousCancellations)
+                     #PreviousBookingsNotCanceled = as.factor(project$PreviousBookingsNotCanceled)
+                       )
+#Adjusts and subsets the data
+```
+
+```{r}
+project.pca <- prcomp(project[,c(2:7,11,12,13,16)], center = TRUE,scale. = TRUE)
+summary(project.pca)
+#Subsets the data
+```
+```{r}
+sort_canceled <- hotel[order(hotel$IsCanceled),]
+c <- c(1:40060)
+myPlot <- ggplot(sort_canceled, aes(x = c)) 
+myPlot <- myPlot + geom_line(aes(y = LeadTime, col = (IsCanceled)), size = 0.2) + expand_limits( x= c(1, 40000)) + xlab("Number of Bookings")
+myPlot
+#Creates a plot looking at cancellations versus lead time
+```
+
+```{r}
+sort_canceled$Adults
+c <- c(1:40060)
+myPlot1 <- ggplot(sort_canceled, aes(x = c))
+        # here we are using ggplot to plot a line graph where data set used is economics
+        # and x axis is date from economics
+myPlot1 <- myPlot1 + geom_point(aes(y = StaysInWeekendNights, col = IsCanceled)) + expand_limits( x= c(1, 40000))+ xlab("Number of Bookings")
+        # here we are adding y axis to the graph and y axis is psavert from economics
+myPlot1
+```
+
+
+```{r}
+```
+```{r}
+c <- c(1:40060)
+myPlot2 <- ggplot(sort_canceled, aes(x = c))
+        # here we are using ggplot to plot a line graph where data set used is economics
+        # and x axis is date from economics
+myPlot2 <- myPlot2 + geom_point(aes(y = Adults, col = IsCanceled)) + expand_limits( x= c(1, 40000)) + xlab("Number of Bookings")
+        # here we are adding y axis to the graph and y axis is psavert from economics
+myPlot2
+```
+```{r}
+myPlot3 <- ggplot(sort_canceled, aes(x = c))
+        # here we are using ggplot to plot a line graph where data set used is economics
+        # and x axis is date from economics
+myPlot3 <- myPlot3 + geom_point(aes(y = PreviousCancellations, col = IsCanceled)) + expand_limits( x= c(1, 40000)) + xlab("Number of Bookings")
+        # here we are adding y axis to the graph and y axis is psavert from economics
+myPlot3
+```
+```{r}
+
+c <- c(1:40060)
+myPlot15 <- ggplot(sort_canceled, aes(x = c))
+        # here we are using ggplot to plot a line graph where data set used is economics
+        # and x axis is date from economics
+myPlot15 <- myPlot + geom_boxplot(aes(y = PreviousCancellations, col = IsCanceled)) + expand_limits( x= c(1, 40000)) 
+        # here we are adding y axis to the graph and y axis is psavert from economics
+myPlot15
+```
+ 
+ Explore the data:
+```{r}
+library(RCurl) # using the library RCurl
+library(jsonlite) # using the library jsonlite
+head(project)
+#view(project)
+no_dep <- hotel[(hotel$DepositType == "No Deposit"),]
+no_dep # Rows of no deposit are 38199 
+
+can_hotel <- hotel[(hotel$IsCanceled == 1),]
+can_hotel
+
+no_dep_can <- can_hotel[(can_hotel$DepositType == "No Deposit"),]
+```
+```{r}
+#no_dep_can <- (can_hotel$DepositType == "No Deposit")
+length(no_dep_can[no_dep_can== TRUE])
+
+can_hotel <- (hotel$IsCanceled == 1)
+length(can_hotel[can_hotel== TRUE])
+
+length(can_hotel[can_hotel== TRUE]) - length(no_dep_can[no_dep_can== TRUE])
+# Number of people canceled hotel booking with no deposit 1672
+
+```
+ 
+```{r}
+a <- length(hotel$IsCanceled)
+no_dep <- (hotel$DepositType == "No Deposit")
+length(no_dep[no_dep == TRUE])
+
+length(hotel$IsCanceled) - length(no_dep[no_dep == TRUE])
+# 27.7 % consist of people who canceled the hotel bookings
+# Out of 27.7% 1672 are those who did not pay the deposit earlier
+# Out of 72.3% only 189 people canceled the booking without no deposit 
+```
+```{r}
+sort_canceled$Adults
+c <- c(1:40060)
+myPlot1 <- ggplot(sort_canceled, aes(x = c))
+        # here we are using ggplot to plot a line graph where data set used is economics
+        # and x axis is date from economics
+myPlot1 <- myPlot1 + geom_point(aes(y = StaysInWeekendNights, col = IsCanceled)) + expand_limits( x= c(1, 40000))
+        # here we are adding y axis to the graph and y axis is psavert from economics
+myPlot1
+```
+ 
+```{r}
+colSums(is.na(hotel))
+hotel$Meal <- as.factor(hotel$Meal)
+levels(hotel$Meal) <- c("BB", "FB", "HB", "SC", "SC")
+table(hotel$Meal)
+#Creates a table for meal choices
+```
+ 
+```{r}
+hotel$IsRepeatedGuest <- as.factor(hotel$IsRepeatedGuest)
+hotel$IsCanceled <- as.factor(hotel$IsCanceled)
+table(hotel$IsCanceled)
+#Creates a table of Cancellations
+```
+ 
+```{r}
+hotel <- read.csv("https://intro-datascience.s3.us-east-2.amazonaws.com/Resort01.csv", header=TRUE)
+str(hotel)
+```
+```{r}
+hotel_new <- data.frame(
+                Canceled = as.factor(hotel$IsCanceled),
+                LeadTime = as.factor(hotel$LeadTime),
+                StaysInWeekendNights = as.factor(hotel$StaysInWeekendNights),
+                StaysInWeekNights = as.factor(hotel$StaysInWeekNights),
+                Adults = as.factor(hotel$Adults),
+                Children = as.factor(hotel$Children),
+                Babies = as.factor(hotel$Babies),
+                IsRepeatedGuest = as.factor(hotel$IsRepeatedGuest),
+                PreviousCancellations = as.factor(hotel$PreviousCancellations),
+                PreviousBookingsNotCanceled = as.factor(hotel$PreviousBookingsNotCanceled),
+                BookingChanges = as.factor(hotel$BookingChanges),
+                RequiredCarParkingSpaces = as.factor(hotel$RequiredCarParkingSpaces),
+                TotalOfSpecialRequests = as.factor(hotel$TotalOfSpecialRequests)
+)
+```
+Plots
+
+```{r}
+library (ggplot2)
+
+
+book <- table(hotel$IsCanceled)
+barplot(book, main="Bookings", 
+   xlab="Number of Bookings")
+
+How_many_days <- table(hotel$LeadTime)
+barplot(How_many_days, main="Span of booking", 
+   xlab="Time")
+#Creates a plot looking at lead times
+```
+

@@ -1,0 +1,113 @@
+---
+title: "Map"
+author: "SB"
+date: "05/12/2021"
+output: pdf_document
+---
+```{r}
+
+library(tidyverse)
+library(dplyr)
+Data_Set <- read_csv('https://intro-datascience.s3.us-east-2.amazonaws.com/Resort01.csv')
+View(Data_Set)
+str(Data_Set)
+
+```
+
+
+```{r}
+
+library(tidyverse)
+library(dplyr)
+dfSimple	<- data.frame(Data_Set%>%count(Country))
+View(dfSimple)
+
+dfSimple$n_percent <- dfSimple$n / sum(dfSimple$n) * 100
+dfSimple$n_percent <- dfSimple$n_percent* 100
+View(n_percent)
+
+library(rworldmap)
+library(dplyr)
+
+Map_p1<-joinCountryData2Map(dfSimple, joinCode = "ISO3", nameJoinColumn = "Country")
+
+library(RColorBrewer)
+colourPalette <- brewer.pal(4,'BuGn')
+
+x <- mapCountryData(mapToPlot = Map_p1, nameColumnToPlot = "n_percent", catMethod = "fixedWidth", mapTitle = 'Minimum and Maximum Percentage of Travellers from the Country',colourPalette = colourPalette )
+
+View(x)
+
+```
+
+```{r}
+library(tidyverse)
+library(dplyr)
+dfSimple	<- data.frame(Data_Set%>%count(Country))
+View(dfSimple)
+
+dfSimple_sorted <- dfSimple%>%arrange(desc(n))
+dfSimple_sorted
+visitedMap <-dfSimple_sorted
+library(rworldmap)
+library(dplyr)
+
+colnames(visitedMap) <- c('country','visited')
+
+visitedMap1 <- joinCountryData2Map(visitedMap, 
+                                  joinCode = "ISO3",
+                                  nameJoinColumn = "country")
+
+library(RColorBrewer)
+colourPalette <- brewer.pal(4,'BuGn')
+
+mapParams <- mapCountryData(visitedMap1, 
+                            nameColumnToPlot="visited",
+                            oceanCol = "azure2",
+                            catMethod = "categorical",
+                            missingCountryCol = gray(.8),
+                            colourPalette = colourPalette,
+                            addLegend = F,
+                            mapTitle = "",
+                            border = NA)
+
+
+```
+
+
+
+```{r}
+data<-Data_Set[c("Country", "IsCanceled")]
+
+library(epiDisplay)
+tab1(data$IsCanceled, sort.group = "decreasing", cum.percent = FALSE)
+
+data1 <- data %>% 
+  rename(
+    country = Country,
+     )
+View(data1)
+
+library(rworldmap)
+library(dplyr)
+
+cancelation_rate<-data1%>%group_by(country)%>%summarize(percentage=sum(IsCanceled)/n())
+
+cancelation_rate
+
+library(RColorBrewer)
+colourPalette <- brewer.pal(4,'BuGn')
+
+spat<-joinCountryData2Map(cancelation_rate, joinCode = "ISO3", nameJoinColumn = "country")
+mapCountryData(mapToPlot = spat, nameColumnToPlot = "percentage", catMethod = "fixedWidth", mapTitle = 'Percentage of Cancellations', colourPalette = colourPalette )
+?mapCountryData
+
+
+
+#References:
+#1: https://slcladal.github.io/maps.html
+#We also referred the lab assignments
+
+
+```
+
